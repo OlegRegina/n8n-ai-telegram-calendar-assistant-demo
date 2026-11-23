@@ -1,0 +1,22 @@
+Telegram Calendar Assistant Demo - validation report
+generated: 2026-11-24 06:35
+tool: scripts/validate.py
+workflows: workflows/telegram-calendar-assistant.json
+private sources: 1 provided for comparison (not part of this repository; paths and hashes not recorded)
+personal deny tokens: 3 provided (values not recorded)
+note: automatic checks are not proof that no sensitive data remains; a manual review is required.
+
+PASS    S3    [workflows/telegram-calendar-assistant.json] allowlist of keys respected
+PASS    S6    [workflows/telegram-calendar-assistant.json] nodes 27/27, edges 28/28
+PASS    S6    [workflows/telegram-calendar-assistant.json] 2 node references, unresolved: 0
+PASS    S6    [workflows/telegram-calendar-assistant.json] node names, order and connections identical to source
+PASS    S7    [workflows/telegram-calendar-assistant.json] only approved map paths differ from source
+PASS    S8    [workflows/telegram-calendar-assistant.json] active=false, availableInMCP=false
+PASS    S9    [workflows/telegram-calendar-assistant.json] calendar = primary (6 fields, 1 URL), one placeholder (REPLACE_WITH_TELEGRAM_USER_ID)
+PASS    S5    [workflows/telegram-calendar-assistant.json] 16-character id-like values: 0
+PASS    S2b   repository files identical to a private source: 0
+PASS    S4    12 source values checked in 23 files; none found
+PASS    S5    pattern scan of 23 files; no findings
+PASS    S10   15 synthetic messages; flagged synthetic, unique ids, example.com only
+
+result: PASS (0 failed checks)

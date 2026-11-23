@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Private, unsanitized n8n exports must never be committed
+*.raw.json
+private/
+exports/
+
+# Local secrets and environment files
+.env
+.env.*
+
+# Local n8n data (import tests)
+.n8n/
+
+# Python
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# Node
+node_modules/

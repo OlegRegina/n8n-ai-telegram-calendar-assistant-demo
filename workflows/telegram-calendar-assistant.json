@@ -1,0 +1,943 @@
+{
+  "name": "Telegram Calendar Assistant (Demo)",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -448,
+        -80
+      ],
+      "id": "60304e6b-f15e-4fa8-abf9-b18d298bc564",
+      "name": "Telegram — User Message",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Current date and time: {{ $now }}\nTimezone: Europe/Zurich.\n\nAnalyze the Telegram message and classify the user's intent.\n\nReturn structured data with exactly these fields:\nintent\ntitle\nstart\nend\nnew_start\nnew_end\nnew_date\nnew_time\nnew_duration_minutes\nuser_message\nchat_id\nlanguage\n\nRules:\n\n1. If the user asks to create, schedule, add, book, or plan a new calendar event:\nintent = create_calendar_event\n\n2. If the user asks what is in the calendar, what events they have, their schedule, appointments, meetings, or plans for a date or period:\nintent = read_calendar\n\n3. If the user asks to move, reschedule, change, rename, or otherwise modify an existing calendar event:\nintent = update_calendar_event\n\n4. Otherwise:\nintent = general_chat\n\nFor create_calendar_event:\n- title = name of the new event\n- start = event start as ISO 8601\n- end = event end as ISO 8601\n- new_start = \"\"\n- new_end = \"\"\n\nFor read_calendar:\n- title = \"\"\n- start = beginning of the requested period as ISO 8601\n- end = end of the requested period as ISO 8601\n- new_start = \"\"\n- new_end = \"\"\n\nFor update_calendar_event:\n- title = title of the existing event\n- start = original event start as ISO 8601\n- end = original event end as ISO 8601\n- new_start = \"\"\n- new_end = \"\"\n- new_date = the new date as YYYY-MM-DD, ONLY if the user names a new day (for example tomorrow, Friday, 25 November); otherwise \"\"\n- new_time = the new start time as HH:mm (24 hours), ONLY if the user names a new time; otherwise \"\"\n- new_duration_minutes = the new duration in minutes, ONLY if the user names a duration; otherwise 0\n- Never fill in a date or time the user did not say. Example: \"move the meeting to 2 pm\" → new_date = \"\", new_time = \"14:00\", new_duration_minutes = 0.\n- If the user only gives a relative shift (for example \"one hour later\"), leave new_date, new_time and new_duration_minutes empty.\n\nFor general_chat:\n- title = \"\"\n- start = \"\"\n- end = \"\"\n- new_start = \"\"\n- new_end = \"\"\n\nFor every intent except update_calendar_event: new_date = \"\", new_time = \"\", new_duration_minutes = 0.\n\nResolve relative dates such as today, tomorrow, next Monday, next week, and in two hours relative to the current date and time above.\n\nUse timezone Europe/Zurich.\n\nIf duration is given, calculate end or new_end accordingly.\n\nAlways copy the user's original Telegram message exactly into user_message.\nDo not summarize, translate, or rewrite user_message.\n\nAlways copy the Telegram chat ID exactly into chat_id.\n\nAlways set language to the ISO 639-1 code of the language of the user's message (for example de, ru, en).\n\nDo not answer the user conversationally. Only classify and extract structured data.\n\nTelegram chat ID:\n{{ $json.message.chat.id }}\n\nUser message:\n{{ $json.message.text }}",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -64,
+        -80
+      ],
+      "id": "354bd1ff-de94-4672-a4a3-17b4ab70a8f8",
+      "name": "AI — Detect Intent",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"intent\": \"update_calendar_event\",\n  \"title\": \"Test Besprechung\",\n  \"start\": \"2026-11-24T10:00:00+01:00\",\n  \"end\": \"2026-11-24T11:00:00+01:00\",\n  \"new_start\": \"\",\n  \"new_end\": \"\",\n  \"user_message\": \"Test Besprechung auf 14 Uhr verschieben\",\n  \"chat_id\": \"12345\",\n  \"language\": \"de\",\n  \"new_date\": \"\",\n  \"new_time\": \"14:00\",\n  \"new_duration_minutes\": 0\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        144
+      ],
+      "id": "33c150b8-0a7a-477a-8674-e583239f64a6",
+      "name": "Parser — Calendar Intent"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.output.intent}}",
+                    "rightValue": "create_calendar_event",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "b9f9d35f-0ba2-48ca-bab0-37df27bd6ba0"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "=Calender"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b8a5bb6c-6796-4380-aa70-e2946e2a2869",
+                    "leftValue": "={{$json.output.intent}}",
+                    "rightValue": "general_chat",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "AI Agent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "30c7f93d-2c4a-480e-92c6-a17da3beecf2",
+                    "leftValue": "={{$json.output.intent}}",
+                    "rightValue": "read_calendar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Read Calendar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4fb6f4cb-1b05-4e8b-90eb-8e68608997cf",
+                    "leftValue": "={{$json.output.intent}}",
+                    "rightValue": "update_calendar_event",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Update Calendar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        -400
+      ],
+      "id": "70361479-733c-4ba0-bf9a-0f59210549d1",
+      "name": "Route — User Intent"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "start": "={{$json._start}}",
+        "end": "={{$json._end}}",
+        "additionalFields": {
+          "summary": "={{$json.output.title}}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        -608
+      ],
+      "id": "e3fd3c71-a6f8-4f1f-b66d-68e12cf82566",
+      "name": "Calendar — Create Event"
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram — User Message\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "={{ (() => { const l = String($('AI — Detect Intent').first().json.output.language || 'de').slice(0, 2); const s = $json.start.dateTime || $json.start.date; const t = DateTime.fromISO(s).setZone('Europe/Zurich').toFormat($json.start.dateTime ? 'dd.MM.yyyy HH:mm' : 'dd.MM.yyyy'); const m = { de: '✓ Eingetragen: ', ru: '✓ Добавлено: ', en: '✓ Added: ' }; return (m[l] || m.en) + $json.summary + ', ' + t; })() }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        -528
+      ],
+      "id": "8c4d72bb-9b27-4617-a33a-bf0c94a64f89",
+      "name": "Telegram — Event Created"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.output.user_message}}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        512,
+        -336
+      ],
+      "id": "06da8cf8-a0ab-4c40-84de-dae24fad8860",
+      "name": "AI — General Assistant"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{$json.output.chat_id}}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        656,
+        -112
+      ],
+      "id": "d2b19893-83db-415d-a4a3-b900c41456e1",
+      "name": "Memory — Conversation"
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram — User Message\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "={{$json.output}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        864,
+        -224
+      ],
+      "id": "f03931d0-84f8-47c2-8ee4-8bf7c9070be8",
+      "name": "Telegram — Agent Reply"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "timeMin": "={{$json.output.start}}",
+        "timeMax": "={{$json.output.end}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        576,
+        64
+      ],
+      "id": "143eb7b0-ecc6-46ad-91e1-a4373222492f",
+      "name": "Calendar — Read Events",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "events",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        64
+      ],
+      "id": "c72c9459-0e3f-407b-b219-27f7d8d63228",
+      "name": "Aggregate — Calendar Events"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Current date and time: {{ $now }}\nTimezone: Europe/Zurich.\n\nYou receive events from Google Calendar.\n\nCreate a concise Telegram-friendly summary in the language with ISO 639-1 code \"{{ $('AI — Detect Intent').first().json.output.language || 'de' }}\".\n\nRules:\n- Sort events chronologically.\n- For every event show the start time and title.\n- If there are no events, say that there are no events in the requested period.\n- Do not invent anything.\n- Do not show IDs, raw JSON or technical fields.\n- Keep the answer concise and natural.\n\nCalendar events:\n{{ JSON.stringify($input.all().map(item => item.json)) }}",
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1248,
+        -32
+      ],
+      "id": "e0b3a5f4-708e-4dfd-afc4-606aef61f703",
+      "name": "AI — Summarize Calendar"
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram — User Message\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "={{$json.text}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        64
+      ],
+      "id": "da6f31f2-4011-4817-85bb-da9838932599",
+      "name": "Telegram — Calendar Summary"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "timeMin": "={{$now.startOf('day')}}",
+        "timeMax": "={{$now.plus({ days: 30 }).endOf('day')}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        576,
+        368
+      ],
+      "id": "bce27925-be9c-485b-b0a1-30fb254e401c",
+      "name": "Calendar — Find Event to Update",
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://www.googleapis.com/calendar/v3/calendars/primary/events/{{$json.id}}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"start\": {\n    \"dateTime\": \"{{ $json._new_start }}\",\n    \"timeZone\": \"Europe/Zurich\"\n  },\n  \"end\": {\n    \"dateTime\": \"{{ $json._new_end }}\",\n    \"timeZone\": \"Europe/Zurich\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1264,
+        512
+      ],
+      "id": "057ac99d-a28f-46d8-9452-158a2deeb689",
+      "name": "Calendar API — Update Event",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram — User Message\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "={{ (() => { const l = String($('AI — Detect Intent').first().json.output.language || 'de').slice(0, 2); const f = (x, k) => DateTime.fromISO(x).setZone('Europe/Zurich').toFormat(k); const m = { de: '✓ Geändert: ', ru: '✓ Изменено: ', en: '✓ Updated: ' }; return (m[l] || m.en) + $json.summary + ', ' + f($json.start.dateTime, 'dd.MM.yyyy HH:mm') + '–' + f($json.end.dateTime, 'HH:mm'); })() }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        368
+      ],
+      "id": "bcb19579-e34c-4372-845d-51d78d4b0125",
+      "name": "Telegram — Update Result"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5.4-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -112,
+        256
+      ],
+      "id": "ad7c1906-42cf-408c-844f-9395cf208a7b",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5.4-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        512,
+        -128
+      ],
+      "id": "07a871de-e7ff-41a8-aaa1-20130f4e3d52",
+      "name": "OpenAI Chat Model1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5.4-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1296,
+        240
+      ],
+      "id": "765709c5-6bc4-48d9-a90d-8dccdd1e7fc2",
+      "name": "OpenAI Chat Model2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sucht den Termin, der geändert werden soll, und berechnet die neue Zeit aus dem gefundenen Termin.\n// Genau ein Treffer und eine erkannte neue Zeit → ändern. Sonst: dem Nutzer antworten, nichts ändern.\n// Die KI liefert nur, was der Nutzer wirklich gesagt hat (new_date, new_time, new_duration_minutes); alles andere kommt aus dem Termin.\nconst TZ = 'Europe/Zurich';\nconst out = $('AI — Detect Intent').first().json.output;\nconst title = String(out.title ?? '').toLowerCase().trim();\nconst lang = String(out.language || 'de').toLowerCase().slice(0, 2);\nconst events = $input.all().map(i => i.json).filter(e => e && e.id);\nlet matches = title ? events.filter(e => String(e.summary ?? '').toLowerCase().includes(title)) : [];\n// Mehrere Treffer und die bisherige Startzeit ist bekannt: auf genau diesen Termin eingrenzen\nif (matches.length > 1 && out.start) {\n  const want = DateTime.fromISO(out.start).toMillis();\n  const exact = matches.filter(e => e.start && e.start.dateTime && DateTime.fromISO(e.start.dateTime).toMillis() === want);\n  if (exact.length) matches = exact;\n}\nconst when = e => DateTime.fromISO(e.start?.dateTime || e.start?.date).setZone(TZ).toFormat('dd.MM. HH:mm');\nconst T = {\n  none: {\n    de: `Termin «${out.title}» nicht gefunden. Es wurde nichts geändert.`,\n    ru: `Событие «${out.title}» не найдено. Ничего не изменено.`,\n    en: `Event \"${out.title}\" not found. Nothing was changed.`,\n  },\n  multiple: {\n    de: 'Mehrere Termine passen. Welchen meinen Sie? Es wurde nichts geändert.',\n    ru: 'Подходит несколько событий. Какое из них? Ничего не изменено.',\n    en: 'Several events match. Which one do you mean? Nothing was changed.',\n  },\n  unclear: {\n    de: 'Neue Zeit nicht erkannt. Es wurde nichts geändert.',\n    ru: 'Новое время не распознано. Ничего не изменено.',\n    en: 'New time not recognised. Nothing was changed.',\n  },\n  allday: {\n    de: 'Ganztägige Termine verschiebe ich nicht. Es wurde nichts geändert.',\n    ru: 'События на весь день я не переношу. Ничего не изменено.',\n    en: 'All-day events are not moved. Nothing was changed.',\n  },\n};\nconst reply = (kind, extra = '') => [{ json: { _match: kind, matches: matches.length, text: (T[kind][lang] || T[kind].en) + extra } }];\nif (matches.length === 0) return reply('none');\nif (matches.length > 1) return reply('multiple', '\\n' + matches.slice(0, 5).map(e => `• ${when(e)} ${e.summary}`).join('\\n'));\nconst ev = matches[0];\nif (!ev.start?.dateTime || !ev.end?.dateTime) return reply('allday');\nconst s0 = DateTime.fromISO(ev.start.dateTime, { zone: TZ });\nconst e0 = DateTime.fromISO(ev.end.dateTime, { zone: TZ });\nconst okDate = /^\\d{4}-\\d{2}-\\d{2}$/.test(String(out.new_date ?? '')) && DateTime.fromISO(out.new_date).isValid;\nconst tm = String(out.new_time ?? '').match(/^([01]?\\d|2[0-3]):([0-5]\\d)$/);\nconst dur = Number(out.new_duration_minutes);\nconst okDur = Number.isFinite(dur) && dur > 0;\nif (!okDate && !tm && !okDur) return reply('unclear');\nconst day = okDate ? DateTime.fromISO(out.new_date, { zone: TZ }) : s0;\nconst s1 = day.set({ hour: tm ? Number(tm[1]) : s0.hour, minute: tm ? Number(tm[2]) : s0.minute, second: 0, millisecond: 0 });\nconst e1 = s1.plus({ minutes: okDur ? dur : Math.round(e0.diff(s0, 'minutes').minutes) });\nif (!s1.isValid || !e1.isValid) return reply('unclear');\nconst iso = x => x.toISO({ suppressMilliseconds: true });\nreturn [{ json: { ...ev, _match: 'found', _new_start: iso(s1), _new_end: iso(e1) } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        368
+      ],
+      "id": "53f0e194-a9e7-43c7-a881-579f813c04e1",
+      "name": "Match — Event to Update"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fe52af75-2297-48f2-b3de-9ff3c842a06f",
+              "leftValue": "={{ $json._match }}",
+              "rightValue": "found",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1040,
+        368
+      ],
+      "id": "a2940a66-4644-4d81-b7d5-5a5658bc0563",
+      "name": "IF — Exactly One Match?"
+    },
+    {
+      "parameters": {
+        "chatId": "={{$node[\"Telegram — User Message\"].json[\"message\"][\"chat\"][\"id\"]}}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1440,
+        672
+      ],
+      "id": "30add267-d70c-4be8-9f3c-35a51bae7c01",
+      "name": "Telegram — Notice"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e394cc75-febc-4384-b113-48a7c85308fb",
+              "leftValue": "={{ $json.message && $json.message.from ? String($json.message.from.id) : '' }}",
+              "rightValue": "REPLACE_WITH_TELEGRAM_USER_ID",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -256,
+        -80
+      ],
+      "id": "372b1cf9-4b37-44b7-a7a0-145face00950",
+      "name": "IF — Allowed Sender?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Bereitet Start und Ende für das Anlegen vor: Ende = Angabe der KI, sonst Start + 60 Minuten. Ohne erkennbaren Start wird nichts angelegt.\nconst TZ = 'Europe/Zurich';\nconst out = $input.first().json.output;\nconst lang = String(out.language || 'de').toLowerCase().slice(0, 2);\nconst s = out.start ? DateTime.fromISO(out.start, { zone: TZ }) : null;\nconst T = { de: 'Zeit nicht erkannt. Es wurde nichts angelegt.', ru: 'Время не распознано. Ничего не создано.', en: 'Time not recognised. Nothing was created.' };\nif (!s || !s.isValid) return [{ json: { output: out, _ok: false, text: T[lang] || T.en } }];\nlet e = out.end ? DateTime.fromISO(out.end, { zone: TZ }) : null;\nif (!e || !e.isValid || e <= s) e = s.plus({ minutes: 60 });\nconst iso = x => x.toISO({ suppressMilliseconds: true });\nreturn [{ json: { output: out, _ok: true, _start: iso(s), _end: iso(e) } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        -608
+      ],
+      "id": "8b7d75e3-01dc-4d61-b58b-d25577dde3f9",
+      "name": "Prepare — Event Times"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8cec1efc-82b0-4253-b493-da89762c75fe",
+              "leftValue": "={{ $json._ok ? 'yes' : 'no' }}",
+              "rightValue": "yes",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        464,
+        -608
+      ],
+      "id": "55991132-cefd-4bf4-acfb-ba5a20dd52e2",
+      "name": "IF — Times OK?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nur echte Termine weitergeben; ohne Termine kommt eine Meldung statt Schweigen.\nconst lang = String($('AI — Detect Intent').first().json.output.language || 'de').toLowerCase().slice(0, 2);\nconst events = $input.all().map(i => i.json).filter(e => e && e.id);\nif (events.length) return events.map(e => ({ json: e }));\nconst T = { de: 'Keine Termine im angefragten Zeitraum.', ru: 'В запрошенный период событий нет.', en: 'No events in the requested period.' };\nreturn [{ json: { _empty: true, text: T[lang] || T.en } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        64
+      ],
+      "id": "d6e6e601-d060-45a2-9d91-26b7c8bf4148",
+      "name": "Filter — Real Events"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0a603430-d96c-4a15-b1c2-d735b01899bc",
+              "leftValue": "={{ $json._empty ? 'empty' : 'events' }}",
+              "rightValue": "events",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        848,
+        64
+      ],
+      "id": "9da038e7-13ab-46ec-b0b5-575ae29ac64b",
+      "name": "IF — Any Events?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram — User Message": {
+      "main": [
+        [
+          {
+            "node": "IF — Allowed Sender?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI — Detect Intent": {
+      "main": [
+        [
+          {
+            "node": "Route — User Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser — Calendar Intent": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI — Detect Intent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route — User Intent": {
+      "main": [
+        [
+          {
+            "node": "Prepare — Event Times",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI — General Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Calendar — Read Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Calendar — Find Event to Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar — Create Event": {
+      "main": [
+        [
+          {
+            "node": "Telegram — Event Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI — General Assistant": {
+      "main": [
+        [
+          {
+            "node": "Telegram — Agent Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memory — Conversation": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI — General Assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar — Read Events": {
+      "main": [
+        [
+          {
+            "node": "Filter — Real Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate — Calendar Events": {
+      "main": [
+        [
+          {
+            "node": "AI — Summarize Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI — Summarize Calendar": {
+      "main": [
+        [
+          {
+            "node": "Telegram — Calendar Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar — Find Event to Update": {
+      "main": [
+        [
+          {
+            "node": "Match — Event to Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calendar API — Update Event": {
+      "main": [
+        [
+          {
+            "node": "Telegram — Update Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI — Detect Intent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI — General Assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI — Summarize Calendar",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match — Event to Update": {
+      "main": [
+        [
+          {
+            "node": "IF — Exactly One Match?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Exactly One Match?": {
+      "main": [
+        [
+          {
+            "node": "Calendar API — Update Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram — Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Allowed Sender?": {
+      "main": [
+        [
+          {
+            "node": "AI — Detect Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare — Event Times": {
+      "main": [
+        [
+          {
+            "node": "IF — Times OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Times OK?": {
+      "main": [
+        [
+          {
+            "node": "Calendar — Create Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram — Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter — Real Events": {
+      "main": [
+        [
+          {
+            "node": "IF — Any Events?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF — Any Events?": {
+      "main": [
+        [
+          {
+            "node": "Aggregate — Calendar Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram — Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "meta": {},
+  "nodeGroups": [],
+  "tags": []
+}
